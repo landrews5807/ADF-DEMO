@@ -1,0 +1,12 @@
+{
+	"name": "RestAPI_CountryIncome",
+	"properties": {
+		"annotations": [],
+		"type": "RestService",
+		"typeProperties": {
+			"url": "http://api.worldbank.org/V2/incomeLevel/LIC/country",
+			"enableServerCertificateValidation": true,
+			"authenticationType": "Anonymous"
+		}
+	}
+}
