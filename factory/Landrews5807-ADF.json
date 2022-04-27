@@ -1,0 +1,9 @@
+{
+	"name": "Landrews5807-ADF",
+	"location": "eastus",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "7bd4b830-1498-45e0-97bb-7677f21ae3c3",
+		"tenantId": "ee0631db-44a1-406f-982c-815dacb07102"
+	}
+}
