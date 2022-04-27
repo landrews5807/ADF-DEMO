@@ -1,0 +1,12 @@
+{
+	"name": "SQL_LaceDemo",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "LS_LACE_Database",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": []
+	}
+}
