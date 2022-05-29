@@ -1,0 +1,13 @@
+{
+	"name": "LACE_StackOverflow",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "LACE_StackOverFlow2010",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": []
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

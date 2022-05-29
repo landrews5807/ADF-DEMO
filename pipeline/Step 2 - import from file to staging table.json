@@ -1,0 +1,104 @@
+{
+	"name": "Step 2 - import from file to staging table",
+	"properties": {
+		"activities": [
+			{
+				"name": "Copy Data - from blob storage to staging table",
+				"type": "Copy",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "ParquetSource",
+						"storeSettings": {
+							"type": "AzureBlobStorageReadSettings",
+							"recursive": true,
+							"enablePartitionDiscovery": false
+						}
+					},
+					"sink": {
+						"type": "SqlDWSink",
+						"preCopyScript": {
+							"value": "@{concat('TRUNCATE TABLE ', pipeline().parameters.SchemaName, '.', pipeline().parameters.TableName)}",
+							"type": "Expression"
+						},
+						"allowCopyCommand": true,
+						"disableMetricsCollection": false
+					},
+					"enableStaging": false
+				},
+				"inputs": [
+					{
+						"referenceName": "Parquet_Sink",
+						"type": "DatasetReference",
+						"parameters": {
+							"container": {
+								"value": "@pipeline().parameters.ContainerName",
+								"type": "Expression"
+							},
+							"directory": {
+								"value": "@pipeline().parameters.DirectoryName",
+								"type": "Expression"
+							},
+							"file": {
+								"value": "@pipeline().parameters.FileName",
+								"type": "Expression"
+							}
+						}
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "SO_Synapse_Dataset",
+						"type": "DatasetReference",
+						"parameters": {
+							"TableName": {
+								"value": "@pipeline().parameters.TableName",
+								"type": "Expression"
+							},
+							"SchemaName": {
+								"value": "@pipeline().parameters.SchemaName",
+								"type": "Expression"
+							}
+						}
+					}
+				]
+			}
+		],
+		"parameters": {
+			"TableName": {
+				"type": "string",
+				"defaultValue": "Users"
+			},
+			"ContainerName": {
+				"type": "string",
+				"defaultValue": "dps2021"
+			},
+			"DirectoryName": {
+				"type": "string",
+				"defaultValue": "DailyExtract"
+			},
+			"FileName": {
+				"type": "string",
+				"defaultValue": "test"
+			},
+			"SchemaName": {
+				"type": "string",
+				"defaultValue": "Staging"
+			}
+		},
+		"folder": {
+			"name": "2021 Demos/Demo 1"
+		},
+		"annotations": [],
+		"lastPublishTime": "2021-11-07T15:41:33Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

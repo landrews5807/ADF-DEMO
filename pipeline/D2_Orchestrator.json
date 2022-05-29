@@ -1,0 +1,241 @@
+{
+	"name": "D2_Orchestrator",
+	"properties": {
+		"activities": [
+			{
+				"name": "Get List of Tables to Process",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlDWSource",
+						"sqlReaderQuery": "Select * from config.tablelisting where IsActive = 1",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "SO_Synapse_Dataset",
+						"type": "DatasetReference",
+						"parameters": {
+							"TableName": "Users",
+							"SchemaName": "Staging"
+						}
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "For each Table in List - perform ETL",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Get List of Tables to Process",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Get List of Tables to Process').output.value",
+						"type": "Expression"
+					},
+					"isSequential": false,
+					"activities": [
+						{
+							"name": "Execute Step 1",
+							"type": "ExecutePipeline",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "Step 1 - Incremental extract and load to storage",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"TableName": {
+										"value": "@item().TableName",
+										"type": "Expression"
+									},
+									"ContainerName": {
+										"value": "@item().ContainerName",
+										"type": "Expression"
+									},
+									"DirectoryName": {
+										"value": "@item().DIrectoryName",
+										"type": "Expression"
+									},
+									"FileName": {
+										"value": "@item().TableName",
+										"type": "Expression"
+									},
+									"SchemaName": {
+										"value": "@item().SourceSchema",
+										"type": "Expression"
+									},
+									"FieldSelectList": {
+										"value": "@item().FieldSelectList",
+										"type": "Expression"
+									},
+									"IncrementalField": {
+										"value": "@item().IncrementalField",
+										"type": "Expression"
+									},
+									"WatermarkDate": {
+										"value": "@item().WatermarkDate",
+										"type": "Expression"
+									},
+									"IsIncremental": {
+										"value": "@item().IsIncremental",
+										"type": "Expression"
+									}
+								}
+							}
+						},
+						{
+							"name": "Execute Step 2",
+							"type": "ExecutePipeline",
+							"dependsOn": [
+								{
+									"activity": "Execute Step 1",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "Step 2 - import from file to staging table",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"TableName": {
+										"value": "@item().TableName",
+										"type": "Expression"
+									},
+									"ContainerName": {
+										"value": "@item().ContainerName",
+										"type": "Expression"
+									},
+									"DirectoryName": {
+										"value": "@item().DirectoryName",
+										"type": "Expression"
+									},
+									"FileName": {
+										"value": "@item().TableName",
+										"type": "Expression"
+									},
+									"SchemaName": {
+										"value": "@item().StagingSchema",
+										"type": "Expression"
+									}
+								}
+							}
+						},
+						{
+							"name": "Execute Step 3",
+							"type": "ExecutePipeline",
+							"dependsOn": [
+								{
+									"activity": "Execute Step 2",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "Step 3 - Transform and Load to DW",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"TableName": {
+										"value": "@item().TableName",
+										"type": "Expression"
+									}
+								}
+							}
+						},
+						{
+							"name": "If Incremental Table - update watermark date",
+							"type": "IfCondition",
+							"dependsOn": [
+								{
+									"activity": "Execute Step 3",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"expression": {
+									"value": "@item().IsIncremental",
+									"type": "Expression"
+								},
+								"ifTrueActivities": [
+									{
+										"name": "Call Update Watermark Stored Procedure",
+										"type": "SqlServerStoredProcedure",
+										"dependsOn": [],
+										"policy": {
+											"timeout": "7.00:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"storedProcedureName": "[config].[usp_UpdateWaterMarkDate]",
+											"storedProcedureParameters": {
+												"INCREMENTALFIELD": {
+													"value": {
+														"value": "@item().IncrementalField",
+														"type": "Expression"
+													},
+													"type": "String"
+												},
+												"TABLE": {
+													"value": {
+														"value": "@item().TableName",
+														"type": "Expression"
+													},
+													"type": "String"
+												}
+											}
+										},
+										"linkedServiceName": {
+											"referenceName": "SO_Synapse",
+											"type": "LinkedServiceReference"
+										}
+									}
+								]
+							}
+						}
+					]
+				}
+			}
+		],
+		"folder": {
+			"name": "2021 Demos/Demo 2"
+		},
+		"annotations": [],
+		"lastPublishTime": "2021-11-09T11:40:48Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

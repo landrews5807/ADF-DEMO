@@ -1,0 +1,107 @@
+{
+	"name": "Step 1 - extract and load to storage",
+	"properties": {
+		"activities": [
+			{
+				"name": "Copy Data - SQL Server Source to Sink Blob Storage",
+				"type": "Copy",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": {
+							"value": "@concat('SELECT ', pipeline().parameters.FieldSelectList, ' FROM ',pipeline().parameters.SchemaName, '.', pipeline().parameters.TableName)",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"sink": {
+						"type": "ParquetSink",
+						"storeSettings": {
+							"type": "AzureBlobStorageWriteSettings"
+						},
+						"formatSettings": {
+							"type": "ParquetWriteSettings"
+						}
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "LACE_StackOverflow",
+						"type": "DatasetReference"
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "Parquet_Sink",
+						"type": "DatasetReference",
+						"parameters": {
+							"container": {
+								"value": "@pipeline().parameters.ContainerName",
+								"type": "Expression"
+							},
+							"directory": {
+								"value": "@pipeline().parameters.DirectoryName",
+								"type": "Expression"
+							},
+							"file": {
+								"value": "@pipeline().parameters.FileName",
+								"type": "Expression"
+							}
+						}
+					}
+				]
+			}
+		],
+		"parameters": {
+			"TableName": {
+				"type": "string",
+				"defaultValue": "Users"
+			},
+			"ContainerName": {
+				"type": "string",
+				"defaultValue": "dps2021"
+			},
+			"DirectoryName": {
+				"type": "string",
+				"defaultValue": "DailyExtract"
+			},
+			"FileName": {
+				"type": "string",
+				"defaultValue": "test"
+			},
+			"SchemaName": {
+				"type": "string",
+				"defaultValue": "dbo"
+			},
+			"FieldSelectList": {
+				"type": "string",
+				"defaultValue": "*"
+			}
+		},
+		"folder": {
+			"name": "2021 Demos/Demo 1"
+		},
+		"annotations": [],
+		"lastPublishTime": "2021-11-07T15:41:33Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

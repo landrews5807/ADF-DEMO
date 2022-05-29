@@ -1,0 +1,128 @@
+{
+	"name": "Snapshot_Pipeline_Extract",
+	"properties": {
+		"activities": [
+			{
+				"name": "Extract to Storage",
+				"type": "Copy",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": {
+							"value": "@concat('SELECT * FROM dbo.', pipeline().parameters.tableName)",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"sink": {
+						"type": "ParquetSink",
+						"storeSettings": {
+							"type": "AzureBlobStorageWriteSettings"
+						},
+						"formatSettings": {
+							"type": "ParquetWriteSettings"
+						}
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "LACE_StackOverflow",
+						"type": "DatasetReference"
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "Parquet_Sink",
+						"type": "DatasetReference",
+						"parameters": {
+							"container": "demo-container",
+							"directory": "DailyExtract",
+							"file": {
+								"value": "@concat('dbo.',pipeline().parameters.tableName)",
+								"type": "Expression"
+							}
+						}
+					}
+				]
+			},
+			{
+				"name": "Load to Synapse",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "Extract to Storage",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[helper].[usp_Process_SnapshotTable_FromBlobStorage]",
+					"storedProcedureParameters": {
+						"tablename": {
+							"value": {
+								"value": "@pipeline().parameters.tableName",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"urlbase": {
+							"value": {
+								"value": "@pipeline().parameters.baseURL",
+								"type": "Expression"
+							},
+							"type": "String"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "SO_Synapse",
+					"type": "LinkedServiceReference"
+				}
+			}
+		],
+		"parameters": {
+			"tableName": {
+				"type": "string",
+				"defaultValue": "LinkTypes"
+			},
+			"baseURL": {
+				"type": "string",
+				"defaultValue": "https://3clouddemo.blob.core.windows.net/demo-container/DailyExtract/"
+			}
+		},
+		"folder": {
+			"name": "Old Demos/Demo 3"
+		},
+		"annotations": [],
+		"lastPublishTime": "2021-08-14T23:43:49Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

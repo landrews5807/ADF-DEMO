@@ -1,0 +1,13 @@
+{
+	"name": "LADemoSQLServerDataset",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "LADemoSQLServer",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "SqlServerTable",
+		"schema": []
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

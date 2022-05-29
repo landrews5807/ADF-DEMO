@@ -1,0 +1,22 @@
+{
+	"name": "ParquetBlobStorageSOUsers",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "3CloudStorage",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "Parquet",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobStorageLocation",
+				"fileName": "SOUser",
+				"folderPath": "DailyExtract",
+				"container": "demo-container"
+			},
+			"compressionCodec": "snappy"
+		},
+		"schema": []
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

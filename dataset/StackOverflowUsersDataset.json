@@ -1,0 +1,119 @@
+{
+	"name": "StackOverflowUsersDataset",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "LACE_StackOverFlow2010",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": [
+			{
+				"name": "Id",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "AcceptedAnswerId",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "AnswerCount",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "Body",
+				"type": "nvarchar"
+			},
+			{
+				"name": "ClosedDate",
+				"type": "datetime",
+				"precision": 23,
+				"scale": 3
+			},
+			{
+				"name": "CommentCount",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "CommunityOwnedDate",
+				"type": "datetime",
+				"precision": 23,
+				"scale": 3
+			},
+			{
+				"name": "CreationDate",
+				"type": "datetime",
+				"precision": 23,
+				"scale": 3
+			},
+			{
+				"name": "FavoriteCount",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "LastActivityDate",
+				"type": "datetime",
+				"precision": 23,
+				"scale": 3
+			},
+			{
+				"name": "LastEditDate",
+				"type": "datetime",
+				"precision": 23,
+				"scale": 3
+			},
+			{
+				"name": "LastEditorDisplayName",
+				"type": "nvarchar"
+			},
+			{
+				"name": "LastEditorUserId",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "OwnerUserId",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "ParentId",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "PostTypeId",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "Score",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "Tags",
+				"type": "nvarchar"
+			},
+			{
+				"name": "Title",
+				"type": "nvarchar"
+			},
+			{
+				"name": "ViewCount",
+				"type": "int",
+				"precision": 10
+			}
+		],
+		"typeProperties": {
+			"schema": "dbo",
+			"table": "Users"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

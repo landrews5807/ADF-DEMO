@@ -1,0 +1,33 @@
+{
+	"name": "SO_Synapse_Dataset",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "SO_Synapse",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"TableName": {
+				"type": "string",
+				"defaultValue": "Users"
+			},
+			"SchemaName": {
+				"type": "string",
+				"defaultValue": "Staging"
+			}
+		},
+		"annotations": [],
+		"type": "AzureSqlDWTable",
+		"schema": [],
+		"typeProperties": {
+			"schema": {
+				"value": "@dataset().SchemaName",
+				"type": "Expression"
+			},
+			"table": {
+				"value": "@dataset().TableName",
+				"type": "Expression"
+			}
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}
