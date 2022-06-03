@@ -78,11 +78,11 @@
 			},
 			"ContainerName": {
 				"type": "string",
-				"defaultValue": "dps2021"
+				"defaultValue": "dg2022"
 			},
 			"DirectoryName": {
 				"type": "string",
-				"defaultValue": "DailyExtract"
+				"defaultValue": "DGDemo"
 			},
 			"FileName": {
 				"type": "string",
