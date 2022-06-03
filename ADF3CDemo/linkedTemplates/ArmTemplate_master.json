@@ -1,0 +1,111 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"type": "string",
+			"metadata": "Data Factory name",
+			"defaultValue": "ADF3CDemo"
+		},
+		"3CloudStorage_connectionString": {
+			"type": "secureString",
+			"metadata": "Secure string for 'connectionString' of '3CloudStorage'"
+		},
+		"LACE_LADemo_connectionString": {
+			"type": "secureString",
+			"metadata": "Secure string for 'connectionString' of 'LACE_LADemo'"
+		},
+		"LACE_StackOverFlow2010_connectionString": {
+			"type": "secureString",
+			"metadata": "Secure string for 'connectionString' of 'LACE_StackOverFlow2010'"
+		},
+		"LADemoSQLServer_connectionString": {
+			"type": "secureString",
+			"metadata": "Secure string for 'connectionString' of 'LADemoSQLServer'"
+		},
+		"LS_LACE_Database_connectionString": {
+			"type": "secureString",
+			"metadata": "Secure string for 'connectionString' of 'LS_LACE_Database'"
+		},
+		"SO_Synapse_connectionString": {
+			"type": "secureString",
+			"metadata": "Secure string for 'connectionString' of 'SO_Synapse'"
+		},
+		"RestAPI_CountryIncome_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "http://api.worldbank.org/V2/incomeLevel/LIC/country"
+		},
+		"containerUri": {
+			"type": "string",
+			"metadata": "URI to storage account containing linked ARM templates"
+		},
+		"containerSasToken": {
+			"type": "string",
+			"metadata": "Sas token to storage account containing linked ARM templates"
+		}
+	},
+	"variables": {
+		"factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+	},
+	"resources": [
+		{
+			"name": "ADF3CDemo_ArmTemplate_0",
+			"type": "Microsoft.Resources/deployments",
+			"apiVersion": "2018-02-01",
+			"properties": {
+				"mode": "incremental",
+				"templateLink": {
+					"uri": "[concat(parameters('containerUri'), '/ArmTemplate_0.json', parameters('containerSasToken'))]",
+					"contentVersion": "1.0.0.0"
+				},
+				"parameters": {
+					"factoryName": {
+						"value": "[parameters('factoryName')]"
+					},
+					"LS_LACE_Database_connectionString": {
+						"value": "[parameters('LS_LACE_Database_connectionString')]"
+					},
+					"3CloudStorage_connectionString": {
+						"value": "[parameters('3CloudStorage_connectionString')]"
+					},
+					"LACE_LADemo_connectionString": {
+						"value": "[parameters('LACE_LADemo_connectionString')]"
+					},
+					"LACE_StackOverFlow2010_connectionString": {
+						"value": "[parameters('LACE_StackOverFlow2010_connectionString')]"
+					},
+					"LADemoSQLServer_connectionString": {
+						"value": "[parameters('LADemoSQLServer_connectionString')]"
+					},
+					"SO_Synapse_connectionString": {
+						"value": "[parameters('SO_Synapse_connectionString')]"
+					},
+					"RestAPI_CountryIncome_properties_typeProperties_url": {
+						"value": "[parameters('RestAPI_CountryIncome_properties_typeProperties_url')]"
+					}
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "ADF3CDemo_ArmTemplate_1",
+			"type": "Microsoft.Resources/deployments",
+			"apiVersion": "2018-02-01",
+			"properties": {
+				"mode": "incremental",
+				"templateLink": {
+					"uri": "[concat(parameters('containerUri'), '/ArmTemplate_1.json', parameters('containerSasToken'))]",
+					"contentVersion": "1.0.0.0"
+				},
+				"parameters": {
+					"factoryName": {
+						"value": "[parameters('factoryName')]"
+					}
+				}
+			},
+			"dependsOn": [
+				"[resourceId('Microsoft.Resources/deployments', 'ADF3CDemo_ArmTemplate_0')]"
+			]
+		}
+	]
+}

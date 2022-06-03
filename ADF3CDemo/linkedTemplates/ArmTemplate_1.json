@@ -1,0 +1,1252 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"type": "string",
+			"metadata": "Data Factory name",
+			"defaultValue": "ADF3CDemo"
+		}
+	},
+	"variables": {
+		"factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+	},
+	"resources": [
+		{
+			"name": "[concat(parameters('factoryName'), '/Incremental_Pipeline_Extract')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Get Incremental Query",
+						"type": "Lookup",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "7.00:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "SqlDWSource",
+								"sqlReaderQuery": {
+									"value": "@concat('SELECT [SchemaName], [TableName], [KeyColumnList], [incrementalField], cast([waterMarkDate] as varchar(10)) as waterMarkDate FROM helper.KeyColumns WHERE tablename = ','''',pipeline().parameters.tableName,'''')",
+									"type": "Expression"
+								},
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"dataset": {
+								"referenceName": "SO_Synapse_Dataset",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						}
+					},
+					{
+						"name": "Get Unique Set of Date Values from SO",
+						"type": "Lookup",
+						"dependsOn": [
+							{
+								"activity": "Get Incremental Query",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "7.00:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "AzureSqlSource",
+								"sqlReaderQuery": {
+									"value": "@concat('SELECT distinct cast(',activity('Get Incremental Query').output.firstRow.incrementalField,' as date) AS VALUE FROM ','dbo.',pipeline().parameters.tableName, ' WHERE ', activity('Get Incremental Query').output.firstRow.incrementalField,' > ','''', activity('Get Incremental Query').output.firstRow.waterMarkDate,'''', ' GROUP BY ', activity('Get Incremental Query').output.firstRow.incrementalField)",
+									"type": "Expression"
+								},
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"dataset": {
+								"referenceName": "LACE_StackOverflow",
+								"type": "DatasetReference",
+								"parameters": {}
+							},
+							"firstRowOnly": false
+						}
+					},
+					{
+						"name": "ForEach1",
+						"type": "ForEach",
+						"dependsOn": [
+							{
+								"activity": "Get Unique Set of Date Values from SO",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@activity('Get Unique Set of Date Values from SO').output.value",
+								"type": "Expression"
+							},
+							"activities": [
+								{
+									"name": "Extract Source to Storage",
+									"type": "Copy",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "7.00:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "AzureSqlSource",
+											"sqlReaderQuery": {
+												"value": "@concat('SELECT * FROM dbo.',pipeline().parameters.tableName, ' WHERE cast( ' , activity('Get Incremental Query').output.firstRow.incrementalField, ' as date) = ','''',item().VALUE, '''')",
+												"type": "Expression"
+											},
+											"queryTimeout": "02:00:00",
+											"partitionOption": "None"
+										},
+										"sink": {
+											"type": "ParquetSink",
+											"storeSettings": {
+												"type": "AzureBlobStorageWriteSettings"
+											},
+											"formatSettings": {
+												"type": "ParquetWriteSettings"
+											}
+										},
+										"enableStaging": false,
+										"translator": {
+											"type": "TabularTranslator",
+											"typeConversion": true,
+											"typeConversionSettings": {
+												"allowDataTruncation": true,
+												"treatBooleanAsNumber": false
+											}
+										}
+									},
+									"inputs": [
+										{
+											"referenceName": "LACE_StackOverflow",
+											"type": "DatasetReference",
+											"parameters": {}
+										}
+									],
+									"outputs": [
+										{
+											"referenceName": "Parquet_Sink",
+											"type": "DatasetReference",
+											"parameters": {
+												"container": "demo-container",
+												"directory": {
+													"value": "@concat('DailyExtract/',pipeline().parameters.tableName,'_',formatDateTime(utcnow(),'yyyyMMdd'))",
+													"type": "Expression"
+												},
+												"file": {
+													"value": "@concat(pipeline().parameters.tableName,'_',replace(item().VALUE,'-',''))",
+													"type": "Expression"
+												}
+											}
+										}
+									]
+								}
+							]
+						}
+					},
+					{
+						"name": "Load to Synapse",
+						"type": "SqlServerStoredProcedure",
+						"dependsOn": [
+							{
+								"activity": "ForEach1",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "7.00:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"storedProcedureName": "[[helper].[usp_Process_IncrementalTable_FromBlobStorage]",
+							"storedProcedureParameters": {
+								"tablename": {
+									"value": {
+										"value": "@pipeline().parameters.tableName",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"urlbase": {
+									"value": {
+										"value": "@pipeline().parameters.baseURL",
+										"type": "Expression"
+									},
+									"type": "String"
+								}
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "SO_Synapse",
+							"type": "LinkedServiceReference"
+						}
+					},
+					{
+						"name": "Update Watermark",
+						"type": "SqlServerStoredProcedure",
+						"dependsOn": [
+							{
+								"activity": "Load to Synapse",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "7.00:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"storedProcedureName": "[[helper].[usp_UpdateKeyColumn_WaterMarkDate]",
+							"storedProcedureParameters": {
+								"INCREMENTALFIELD": {
+									"value": {
+										"value": "@activity('Get Incremental Query').output.firstRow.incrementalField",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"TABLE": {
+									"value": {
+										"value": "@pipeline().parameters.tableName",
+										"type": "Expression"
+									},
+									"type": "String"
+								}
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "SO_Synapse",
+							"type": "LinkedServiceReference"
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {},
+					"cancelAfter": {}
+				},
+				"parameters": {
+					"tableName": {
+						"type": "string",
+						"defaultValue": "Users"
+					},
+					"baseURL": {
+						"type": "string",
+						"defaultValue": "https://3clouddemo.blob.core.windows.net/demo-container/DailyExtract/"
+					}
+				},
+				"folder": {
+					"name": "Old Demos/Demo 3"
+				},
+				"annotations": [],
+				"lastPublishTime": "2021-08-15T01:06:41Z"
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/LACE_SO to Blob Storage')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Copy User to File",
+						"type": "Copy",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "7.00:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "AzureSqlSource",
+								"sqlReaderQuery": "select top 10 * from dbo.users",
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"sink": {
+								"type": "ParquetSink",
+								"storeSettings": {
+									"type": "AzureBlobStorageWriteSettings"
+								},
+								"formatSettings": {
+									"type": "ParquetWriteSettings"
+								}
+							},
+							"enableStaging": false,
+							"translator": {
+								"type": "TabularTranslator",
+								"typeConversion": true,
+								"typeConversionSettings": {
+									"allowDataTruncation": true,
+									"treatBooleanAsNumber": false
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "StackOverflowUsersDataset",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "ParquetBlobStorageSOUsers",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						]
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {},
+					"cancelAfter": {}
+				},
+				"folder": {
+					"name": "Old Demos/Demo 2"
+				},
+				"annotations": [],
+				"lastPublishTime": "2021-08-14T23:43:49Z"
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Snapshot_Pipeline_Extract')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Extract to Storage",
+						"type": "Copy",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "7.00:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "AzureSqlSource",
+								"sqlReaderQuery": {
+									"value": "@concat('SELECT * FROM dbo.', pipeline().parameters.tableName)",
+									"type": "Expression"
+								},
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"sink": {
+								"type": "ParquetSink",
+								"storeSettings": {
+									"type": "AzureBlobStorageWriteSettings"
+								},
+								"formatSettings": {
+									"type": "ParquetWriteSettings"
+								}
+							},
+							"enableStaging": false,
+							"translator": {
+								"type": "TabularTranslator",
+								"typeConversion": true,
+								"typeConversionSettings": {
+									"allowDataTruncation": true,
+									"treatBooleanAsNumber": false
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "LACE_StackOverflow",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "Parquet_Sink",
+								"type": "DatasetReference",
+								"parameters": {
+									"container": "demo-container",
+									"directory": "DailyExtract",
+									"file": {
+										"value": "@concat('dbo.',pipeline().parameters.tableName)",
+										"type": "Expression"
+									}
+								}
+							}
+						]
+					},
+					{
+						"name": "Load to Synapse",
+						"type": "SqlServerStoredProcedure",
+						"dependsOn": [
+							{
+								"activity": "Extract to Storage",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "7.00:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"storedProcedureName": "[[helper].[usp_Process_SnapshotTable_FromBlobStorage]",
+							"storedProcedureParameters": {
+								"tablename": {
+									"value": {
+										"value": "@pipeline().parameters.tableName",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"urlbase": {
+									"value": {
+										"value": "@pipeline().parameters.baseURL",
+										"type": "Expression"
+									},
+									"type": "String"
+								}
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "SO_Synapse",
+							"type": "LinkedServiceReference"
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {},
+					"cancelAfter": {}
+				},
+				"parameters": {
+					"tableName": {
+						"type": "string",
+						"defaultValue": "LinkTypes"
+					},
+					"baseURL": {
+						"type": "string",
+						"defaultValue": "https://3clouddemo.blob.core.windows.net/demo-container/DailyExtract/"
+					}
+				},
+				"folder": {
+					"name": "Old Demos/Demo 3"
+				},
+				"annotations": [],
+				"lastPublishTime": "2021-08-14T23:43:49Z"
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Step 1 - Incremental extract and load to storage')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Copy Data - SQL Server Source to Sink Blob Storage",
+						"type": "Copy",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "7.00:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "AzureSqlSource",
+								"sqlReaderQuery": {
+									"value": "@concat('SELECT ', pipeline().parameters.FieldSelectList, ' FROM ',pipeline().parameters.SchemaName, '.', pipeline().parameters.TableName, \n\nif(equals(pipeline().parameters.IsIncremental,true), concat(\n' WHERE cast(', pipeline().parameters.IncrementalField, ' as date) > ''', pipeline().parameters.WatermarkDate, ''''), '')\n\n)",
+									"type": "Expression"
+								},
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"sink": {
+								"type": "ParquetSink",
+								"storeSettings": {
+									"type": "AzureBlobStorageWriteSettings"
+								},
+								"formatSettings": {
+									"type": "ParquetWriteSettings"
+								}
+							},
+							"enableStaging": false,
+							"translator": {
+								"type": "TabularTranslator",
+								"typeConversion": true,
+								"typeConversionSettings": {
+									"allowDataTruncation": true,
+									"treatBooleanAsNumber": false
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "LACE_StackOverflow",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "Parquet_Sink",
+								"type": "DatasetReference",
+								"parameters": {
+									"container": {
+										"value": "@pipeline().parameters.ContainerName",
+										"type": "Expression"
+									},
+									"directory": {
+										"value": "@pipeline().parameters.DirectoryName",
+										"type": "Expression"
+									},
+									"file": {
+										"value": "@pipeline().parameters.FileName",
+										"type": "Expression"
+									}
+								}
+							}
+						]
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {},
+					"cancelAfter": {}
+				},
+				"parameters": {
+					"TableName": {
+						"type": "string",
+						"defaultValue": "Users"
+					},
+					"ContainerName": {
+						"type": "string",
+						"defaultValue": "dps2021"
+					},
+					"DirectoryName": {
+						"type": "string",
+						"defaultValue": "DailyExtract"
+					},
+					"FileName": {
+						"type": "string",
+						"defaultValue": "test"
+					},
+					"SchemaName": {
+						"type": "string",
+						"defaultValue": "dbo"
+					},
+					"FieldSelectList": {
+						"type": "string",
+						"defaultValue": "*"
+					},
+					"IncrementalField": {
+						"type": "string",
+						"defaultValue": "CreationDate"
+					},
+					"WatermarkDate": {
+						"type": "string",
+						"defaultValue": "2010-12-31"
+					},
+					"IsIncremental": {
+						"type": "bool",
+						"defaultValue": true
+					}
+				},
+				"folder": {
+					"name": "2021 Demos/Demo 2"
+				},
+				"annotations": [],
+				"lastPublishTime": "2021-11-07T15:41:33Z"
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Step 1 - extract and load to storage')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Copy Data - SQL Server Source to Sink Blob Storage",
+						"type": "Copy",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "7.00:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "AzureSqlSource",
+								"sqlReaderQuery": {
+									"value": "@concat('SELECT ', pipeline().parameters.FieldSelectList, ' FROM ',pipeline().parameters.SchemaName, '.', pipeline().parameters.TableName)",
+									"type": "Expression"
+								},
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"sink": {
+								"type": "ParquetSink",
+								"storeSettings": {
+									"type": "AzureBlobStorageWriteSettings"
+								},
+								"formatSettings": {
+									"type": "ParquetWriteSettings"
+								}
+							},
+							"enableStaging": false,
+							"translator": {
+								"type": "TabularTranslator",
+								"typeConversion": true,
+								"typeConversionSettings": {
+									"allowDataTruncation": true,
+									"treatBooleanAsNumber": false
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "LACE_StackOverflow",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "Parquet_Sink",
+								"type": "DatasetReference",
+								"parameters": {
+									"container": {
+										"value": "@pipeline().parameters.ContainerName",
+										"type": "Expression"
+									},
+									"directory": {
+										"value": "@pipeline().parameters.DirectoryName",
+										"type": "Expression"
+									},
+									"file": {
+										"value": "@pipeline().parameters.FileName",
+										"type": "Expression"
+									}
+								}
+							}
+						]
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {},
+					"cancelAfter": {}
+				},
+				"parameters": {
+					"TableName": {
+						"type": "string",
+						"defaultValue": "Users"
+					},
+					"ContainerName": {
+						"type": "string",
+						"defaultValue": "DG2022"
+					},
+					"DirectoryName": {
+						"type": "string",
+						"defaultValue": "DGDemo"
+					},
+					"FileName": {
+						"type": "string",
+						"defaultValue": "test"
+					},
+					"SchemaName": {
+						"type": "string",
+						"defaultValue": "dbo"
+					},
+					"FieldSelectList": {
+						"type": "string",
+						"defaultValue": "*"
+					}
+				},
+				"folder": {
+					"name": "2021 Demos/Demo 1"
+				},
+				"annotations": [],
+				"lastPublishTime": "2021-11-07T15:41:33Z"
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Step 2 - import from file to staging table')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Copy Data - from blob storage to staging table",
+						"type": "Copy",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "7.00:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "ParquetSource",
+								"storeSettings": {
+									"type": "AzureBlobStorageReadSettings",
+									"recursive": true,
+									"enablePartitionDiscovery": false
+								}
+							},
+							"sink": {
+								"type": "SqlDWSink",
+								"preCopyScript": {
+									"value": "@{concat('TRUNCATE TABLE ', pipeline().parameters.SchemaName, '.', pipeline().parameters.TableName)}",
+									"type": "Expression"
+								},
+								"allowCopyCommand": true,
+								"copyCommandSettings": {},
+								"disableMetricsCollection": false
+							},
+							"enableStaging": false
+						},
+						"inputs": [
+							{
+								"referenceName": "Parquet_Sink",
+								"type": "DatasetReference",
+								"parameters": {
+									"container": {
+										"value": "@pipeline().parameters.ContainerName",
+										"type": "Expression"
+									},
+									"directory": {
+										"value": "@pipeline().parameters.DirectoryName",
+										"type": "Expression"
+									},
+									"file": {
+										"value": "@pipeline().parameters.FileName",
+										"type": "Expression"
+									}
+								}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "SO_Synapse_Dataset",
+								"type": "DatasetReference",
+								"parameters": {
+									"TableName": {
+										"value": "@pipeline().parameters.TableName",
+										"type": "Expression"
+									},
+									"SchemaName": {
+										"value": "@pipeline().parameters.SchemaName",
+										"type": "Expression"
+									}
+								}
+							}
+						]
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {},
+					"cancelAfter": {}
+				},
+				"parameters": {
+					"TableName": {
+						"type": "string",
+						"defaultValue": "Users"
+					},
+					"ContainerName": {
+						"type": "string",
+						"defaultValue": "dps2021"
+					},
+					"DirectoryName": {
+						"type": "string",
+						"defaultValue": "DailyExtract"
+					},
+					"FileName": {
+						"type": "string",
+						"defaultValue": "test"
+					},
+					"SchemaName": {
+						"type": "string",
+						"defaultValue": "Staging"
+					}
+				},
+				"folder": {
+					"name": "2021 Demos/Demo 1"
+				},
+				"annotations": [],
+				"lastPublishTime": "2021-11-07T15:41:33Z"
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/D2_Orchestrator')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Get List of Tables to Process",
+						"type": "Lookup",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "7.00:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "SqlDWSource",
+								"sqlReaderQuery": "Select * from config.tablelisting where IsActive = 1",
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"dataset": {
+								"referenceName": "SO_Synapse_Dataset",
+								"type": "DatasetReference",
+								"parameters": {
+									"TableName": "Users",
+									"SchemaName": "Staging"
+								}
+							},
+							"firstRowOnly": false
+						}
+					},
+					{
+						"name": "For each Table in List - perform ETL",
+						"type": "ForEach",
+						"dependsOn": [
+							{
+								"activity": "Get List of Tables to Process",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@activity('Get List of Tables to Process').output.value",
+								"type": "Expression"
+							},
+							"isSequential": false,
+							"activities": [
+								{
+									"name": "Execute Step 1",
+									"type": "ExecutePipeline",
+									"dependsOn": [],
+									"userProperties": [],
+									"typeProperties": {
+										"pipeline": {
+											"referenceName": "Step 1 - Incremental extract and load to storage",
+											"type": "PipelineReference"
+										},
+										"waitOnCompletion": true,
+										"parameters": {
+											"TableName": {
+												"value": "@item().TableName",
+												"type": "Expression"
+											},
+											"ContainerName": {
+												"value": "@item().ContainerName",
+												"type": "Expression"
+											},
+											"DirectoryName": {
+												"value": "@item().DIrectoryName",
+												"type": "Expression"
+											},
+											"FileName": {
+												"value": "@item().TableName",
+												"type": "Expression"
+											},
+											"SchemaName": {
+												"value": "@item().SourceSchema",
+												"type": "Expression"
+											},
+											"FieldSelectList": {
+												"value": "@item().FieldSelectList",
+												"type": "Expression"
+											},
+											"IncrementalField": {
+												"value": "@item().IncrementalField",
+												"type": "Expression"
+											},
+											"WatermarkDate": {
+												"value": "@item().WatermarkDate",
+												"type": "Expression"
+											},
+											"IsIncremental": {
+												"value": "@item().IsIncremental",
+												"type": "Expression"
+											}
+										}
+									}
+								},
+								{
+									"name": "Execute Step 2",
+									"type": "ExecutePipeline",
+									"dependsOn": [
+										{
+											"activity": "Execute Step 1",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"userProperties": [],
+									"typeProperties": {
+										"pipeline": {
+											"referenceName": "Step 2 - import from file to staging table",
+											"type": "PipelineReference"
+										},
+										"waitOnCompletion": true,
+										"parameters": {
+											"TableName": {
+												"value": "@item().TableName",
+												"type": "Expression"
+											},
+											"ContainerName": {
+												"value": "@item().ContainerName",
+												"type": "Expression"
+											},
+											"DirectoryName": {
+												"value": "@item().DirectoryName",
+												"type": "Expression"
+											},
+											"FileName": {
+												"value": "@item().TableName",
+												"type": "Expression"
+											},
+											"SchemaName": {
+												"value": "@item().StagingSchema",
+												"type": "Expression"
+											}
+										}
+									}
+								},
+								{
+									"name": "Execute Step 3",
+									"type": "ExecutePipeline",
+									"dependsOn": [
+										{
+											"activity": "Execute Step 2",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"userProperties": [],
+									"typeProperties": {
+										"pipeline": {
+											"referenceName": "Step 3 - Transform and Load to DW",
+											"type": "PipelineReference"
+										},
+										"waitOnCompletion": true,
+										"parameters": {
+											"TableName": {
+												"value": "@item().TableName",
+												"type": "Expression"
+											}
+										}
+									}
+								},
+								{
+									"name": "If Incremental Table - update watermark date",
+									"type": "IfCondition",
+									"dependsOn": [
+										{
+											"activity": "Execute Step 3",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"userProperties": [],
+									"typeProperties": {
+										"expression": {
+											"value": "@item().IsIncremental",
+											"type": "Expression"
+										},
+										"ifTrueActivities": [
+											{
+												"name": "Call Update Watermark Stored Procedure",
+												"type": "SqlServerStoredProcedure",
+												"dependsOn": [],
+												"policy": {
+													"timeout": "7.00:00:00",
+													"retry": 0,
+													"retryIntervalInSeconds": 30,
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"storedProcedureName": "[[config].[usp_UpdateWaterMarkDate]",
+													"storedProcedureParameters": {
+														"INCREMENTALFIELD": {
+															"value": {
+																"value": "@item().IncrementalField",
+																"type": "Expression"
+															},
+															"type": "String"
+														},
+														"TABLE": {
+															"value": {
+																"value": "@item().TableName",
+																"type": "Expression"
+															},
+															"type": "String"
+														}
+													}
+												},
+												"linkedServiceName": {
+													"referenceName": "SO_Synapse",
+													"type": "LinkedServiceReference"
+												}
+											}
+										]
+									}
+								}
+							]
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {},
+					"cancelAfter": {}
+				},
+				"folder": {
+					"name": "2021 Demos/Demo 2"
+				},
+				"annotations": [],
+				"lastPublishTime": "2021-11-09T11:40:48Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/pipelines/Step 1 - Incremental extract and load to storage')]",
+				"[concat(variables('factoryId'), '/pipelines/Step 2 - import from file to staging table')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/D3_Orchestrator')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Get Table Listing",
+						"type": "Lookup",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "7.00:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "SqlDWSource",
+								"sqlReaderStoredProcedureName": "[[dbo].[usp_GetTableListing]",
+								"storedProcedureParameters": {
+									"GroupName": {
+										"type": "String",
+										"value": {
+											"value": "@pipeline().parameters.groupName",
+											"type": "Expression"
+										}
+									},
+									"OptionalTable": {
+										"type": "String",
+										"value": {
+											"value": "@pipeline().parameters.optionalTable",
+											"type": "Expression"
+										}
+									}
+								},
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"dataset": {
+								"referenceName": "SO_Synapse_Dataset",
+								"type": "DatasetReference",
+								"parameters": {}
+							},
+							"firstRowOnly": false
+						}
+					},
+					{
+						"name": "Refresh Table Loop",
+						"type": "ForEach",
+						"dependsOn": [
+							{
+								"activity": "Get Table Listing",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@activity('Get Table Listing').output.value",
+								"type": "Expression"
+							},
+							"activities": [
+								{
+									"name": "Switch1",
+									"description": "Switch is based on 0 - Snapshot; 1 - Incremental",
+									"type": "Switch",
+									"dependsOn": [],
+									"userProperties": [],
+									"typeProperties": {
+										"on": {
+											"value": "@string(item().IsIncremental)",
+											"type": "Expression"
+										},
+										"cases": [
+											{
+												"value": "0",
+												"activities": [
+													{
+														"name": "Execute Snapshot Pipeline",
+														"type": "ExecutePipeline",
+														"dependsOn": [],
+														"userProperties": [],
+														"typeProperties": {
+															"pipeline": {
+																"referenceName": "Snapshot_Pipeline_Extract",
+																"type": "PipelineReference"
+															},
+															"waitOnCompletion": true,
+															"parameters": {
+																"tableName": {
+																	"value": "@item().TableName",
+																	"type": "Expression"
+																},
+																"baseURL": "https://3clouddemo.blob.core.windows.net/demo-container/DailyExtract/"
+															}
+														}
+													}
+												]
+											},
+											{
+												"value": "1",
+												"activities": [
+													{
+														"name": "Execute Incremental Pipeline",
+														"type": "ExecutePipeline",
+														"dependsOn": [],
+														"userProperties": [],
+														"typeProperties": {
+															"pipeline": {
+																"referenceName": "Incremental_Pipeline_Extract",
+																"type": "PipelineReference"
+															},
+															"waitOnCompletion": true,
+															"parameters": {
+																"tableName": {
+																	"value": "@item().TableName",
+																	"type": "Expression"
+																},
+																"baseURL": "https://3clouddemo.blob.core.windows.net/demo-container/DailyExtract/"
+															}
+														}
+													}
+												]
+											}
+										]
+									}
+								}
+							]
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {},
+					"cancelAfter": {}
+				},
+				"parameters": {
+					"groupName": {
+						"type": "string",
+						"defaultValue": "SO"
+					},
+					"optionalTable": {
+						"type": "string"
+					}
+				},
+				"folder": {
+					"name": "Old Demos/Demo 3"
+				},
+				"annotations": [],
+				"lastPublishTime": "2021-11-09T11:40:47Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/pipelines/Snapshot_Pipeline_Extract')]",
+				"[concat(variables('factoryId'), '/pipelines/Incremental_Pipeline_Extract')]"
+			]
+		}
+	]
+}
