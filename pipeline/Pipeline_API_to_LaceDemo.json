@@ -25,15 +25,12 @@
 						}
 					},
 					"enableStaging": false
-				},
-				"inputs": [
-					{
-						"referenceName": "ds_restapi_countryincome",
-						"type": "DatasetReference"
-					}
-				]
+				}
 			}
 		],
+		"folder": {
+			"name": "Old Demos"
+		},
 		"annotations": []
 	}
 }
