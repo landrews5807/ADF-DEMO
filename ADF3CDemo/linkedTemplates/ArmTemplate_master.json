@@ -31,10 +31,6 @@
 			"type": "secureString",
 			"metadata": "Secure string for 'connectionString' of 'SO_Synapse'"
 		},
-		"RestAPI_CountryIncome_properties_typeProperties_url": {
-			"type": "string",
-			"defaultValue": "http://api.worldbank.org/V2/incomeLevel/LIC/country"
-		},
 		"containerUri": {
 			"type": "string",
 			"metadata": "URI to storage account containing linked ARM templates"
@@ -79,9 +75,6 @@
 					},
 					"SO_Synapse_connectionString": {
 						"value": "[parameters('SO_Synapse_connectionString')]"
-					},
-					"RestAPI_CountryIncome_properties_typeProperties_url": {
-						"value": "[parameters('RestAPI_CountryIncome_properties_typeProperties_url')]"
 					}
 				}
 			},

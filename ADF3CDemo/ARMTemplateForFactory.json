@@ -30,10 +30,6 @@
 		"SO_Synapse_connectionString": {
 			"type": "secureString",
 			"metadata": "Secure string for 'connectionString' of 'SO_Synapse'"
-		},
-		"RestAPI_CountryIncome_properties_typeProperties_url": {
-			"type": "string",
-			"defaultValue": "http://api.worldbank.org/V2/incomeLevel/LIC/country"
 		}
 	},
 	"variables": {
@@ -1226,7 +1222,7 @@
 					},
 					"ContainerName": {
 						"type": "string",
-						"defaultValue": "DG2022"
+						"defaultValue": "dg2022"
 					},
 					"DirectoryName": {
 						"type": "string",
@@ -1344,11 +1340,11 @@
 					},
 					"ContainerName": {
 						"type": "string",
-						"defaultValue": "dps2021"
+						"defaultValue": "DG2022"
 					},
 					"DirectoryName": {
 						"type": "string",
-						"defaultValue": "DailyExtract"
+						"defaultValue": "DGDemo"
 					},
 					"FileName": {
 						"type": "string",
@@ -1529,7 +1525,10 @@
 				"annotations": [],
 				"type": "AzureSqlTable",
 				"schema": [],
-				"typeProperties": {}
+				"typeProperties": {
+					"schema": "dbo",
+					"table": "Users"
+				}
 			},
 			"dependsOn": [
 				"[concat(variables('factoryId'), '/linkedServices/LACE_StackOverFlow2010')]"
@@ -1889,21 +1888,6 @@
 				"type": "AzureSqlDatabase",
 				"typeProperties": {
 					"connectionString": "[parameters('LS_LACE_Database_connectionString')]"
-				}
-			},
-			"dependsOn": []
-		},
-		{
-			"name": "[concat(parameters('factoryName'), '/RestAPI_CountryIncome')]",
-			"type": "Microsoft.DataFactory/factories/linkedServices",
-			"apiVersion": "2018-06-01",
-			"properties": {
-				"annotations": [],
-				"type": "RestService",
-				"typeProperties": {
-					"url": "[parameters('RestAPI_CountryIncome_properties_typeProperties_url')]",
-					"enableServerCertificateValidation": true,
-					"authenticationType": "Anonymous"
 				}
 			},
 			"dependsOn": []

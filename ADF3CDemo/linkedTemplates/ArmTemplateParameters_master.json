@@ -23,9 +23,6 @@
 		"SO_Synapse_connectionString": {
 			"value": ""
 		},
-		"RestAPI_CountryIncome_properties_typeProperties_url": {
-			"value": "http://api.worldbank.org/V2/incomeLevel/LIC/country"
-		},
 		"containerUri": {
 			"value": ""
 		},
