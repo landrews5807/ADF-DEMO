@@ -78,7 +78,7 @@
 			},
 			"ContainerName": {
 				"type": "string",
-				"defaultValue": "DG2022"
+				"defaultValue": "dg2022"
 			},
 			"DirectoryName": {
 				"type": "string",
