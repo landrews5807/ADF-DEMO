@@ -78,11 +78,11 @@
 			},
 			"ContainerName": {
 				"type": "string",
-				"defaultValue": "dg2022"
+				"defaultValue": "kcdc2022"
 			},
 			"DirectoryName": {
 				"type": "string",
-				"defaultValue": "DGDemo"
+				"defaultValue": "KCDCDemo"
 			},
 			"FileName": {
 				"type": "string",
@@ -98,7 +98,7 @@
 			}
 		},
 		"folder": {
-			"name": "2021 Demos/Demo 1"
+			"name": "KCDC 2022 Demos/Demo 1"
 		},
 		"annotations": [],
 		"lastPublishTime": "2021-11-07T15:41:33Z"
