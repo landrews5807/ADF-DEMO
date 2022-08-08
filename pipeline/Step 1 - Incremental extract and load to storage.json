@@ -78,11 +78,11 @@
 			},
 			"ContainerName": {
 				"type": "string",
-				"defaultValue": "dg2022"
+				"defaultValue": "kcdc2022"
 			},
 			"DirectoryName": {
 				"type": "string",
-				"defaultValue": "DGDemo"
+				"defaultValue": "KCDCDemo"
 			},
 			"FileName": {
 				"type": "string",
