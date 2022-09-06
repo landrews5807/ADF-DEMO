@@ -1222,11 +1222,11 @@
 					},
 					"ContainerName": {
 						"type": "string",
-						"defaultValue": "kcdc2022"
+						"defaultValue": "ohiosql2022"
 					},
 					"DirectoryName": {
 						"type": "string",
-						"defaultValue": "KCDCDemo"
+						"defaultValue": "UGDemo"
 					},
 					"FileName": {
 						"type": "string",
@@ -1923,7 +1923,11 @@
 						"dataFlowProperties": {
 							"computeType": "General",
 							"coreCount": 8,
-							"timeToLive": 0
+							"timeToLive": 0,
+							"cleanup": true
+						},
+						"pipelineExternalComputeScaleProperties": {
+							"timeToLive": 60
 						}
 					}
 				},
