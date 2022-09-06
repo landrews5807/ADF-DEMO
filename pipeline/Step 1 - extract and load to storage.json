@@ -78,11 +78,11 @@
 			},
 			"ContainerName": {
 				"type": "string",
-				"defaultValue": "kcdc2022"
+				"defaultValue": "ohiosql2022"
 			},
 			"DirectoryName": {
 				"type": "string",
-				"defaultValue": "KCDCDemo"
+				"defaultValue": "UGDemo"
 			},
 			"FileName": {
 				"type": "string",
