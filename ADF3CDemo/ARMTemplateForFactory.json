@@ -345,7 +345,7 @@
 					"cancelAfter": {}
 				},
 				"folder": {
-					"name": "KCDC 2022 Demos/Demo 2"
+					"name": "User Group 2022 Demos/Demo 2"
 				},
 				"annotations": [],
 				"lastPublishTime": "2021-11-09T11:40:48Z"
@@ -1093,11 +1093,11 @@
 					},
 					"ContainerName": {
 						"type": "string",
-						"defaultValue": "kcdc2022"
+						"defaultValue": "ohiosql2022"
 					},
 					"DirectoryName": {
 						"type": "string",
-						"defaultValue": "KCDCDemo"
+						"defaultValue": "UGDemo"
 					},
 					"FileName": {
 						"type": "string",
@@ -1125,7 +1125,7 @@
 					}
 				},
 				"folder": {
-					"name": "KCDC 2022 Demos/Demo 2"
+					"name": "User Group 2022 Demos/Demo 2"
 				},
 				"annotations": [],
 				"lastPublishTime": "2021-11-07T15:41:33Z"
@@ -1242,7 +1242,7 @@
 					}
 				},
 				"folder": {
-					"name": "KCDC 2022 Demos/Demo 1"
+					"name": "User Group 2022 Demos/Demo 1"
 				},
 				"annotations": [],
 				"lastPublishTime": "2021-11-07T15:41:33Z"
@@ -1356,7 +1356,7 @@
 					}
 				},
 				"folder": {
-					"name": "KCDC 2022 Demos/Demo 1"
+					"name": "User Group 2022 Demos/Demo 1"
 				},
 				"annotations": [],
 				"lastPublishTime": "2021-11-07T15:41:33Z"
@@ -1413,7 +1413,7 @@
 					}
 				},
 				"folder": {
-					"name": "KCDC 2022 Demos/Demo 1"
+					"name": "User Group 2022 Demos/Demo 1"
 				},
 				"annotations": [],
 				"lastPublishTime": "2021-11-07T15:41:33Z"
